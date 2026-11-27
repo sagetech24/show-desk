@@ -77,3 +77,44 @@ migrations/     SQL schema (applied by npm run build / auto-applied locally)
 
 `src/lib/migrations.generated.ts` is generated from `migrations/*.sql` (`npm run dev|build` regenerate it).
 Only add new migration files; never edit one that has been applied.
+
+## AI agents
+
+Four agents from [agency-agents](https://github.com/msitarzewski/agency-agents) are installed as Cursor rules in `.cursor/rules/`:
+
+| Rule | Use for | Auto-attaches to |
+|------|---------|------------------|
+| `frontend-developer` | UI, components, Tailwind, accessibility | `src/app/**/*.tsx`, `src/components/**` |
+| `backend-architect` | server actions, API routes, DB/migrations | `src/app/actions`, `src/app/api`, `src/lib`, `migrations` |
+| `application-security-engineer` | secure code review, auth, secrets, input handling | on demand |
+| `code-reviewer` | review of changes before merge | on demand |
+| `git-workflow-master` | branching, conventional commits, PR flow | on demand (used by `/ship`) |
+
+Invoke on demand in chat, e.g. `@application-security-engineer review src/app/actions/auth.ts` or
+`@code-reviewer review my uncommitted changes`.
+
+### Ship changes (`/ship`)
+
+`/ship` (defined in `.cursor/commands/ship.md`) runs the whole flow in one go: typecheck, safety scan for secrets,
+summary, conventional commits on a feature branch, push, and a pull request against `main`. It never pushes to
+`main` directly and never force-pushes. Nothing is pushed unless you run `/ship`.
+
+Prerequisites (one time):
+
+The remote uses the `github-sagetech` SSH host alias (key `~/.ssh/id_ed25519_sagetech`, account `sagetech24`),
+same as RacketTier. Plain HTTPS fails with 403 because the keychain login is a different GitHub account.
+
+```bash
+git remote add origin git@github-sagetech:sagetech24/show-desk.git
+git config user.name sagetech24
+git config user.email sagetechnology.ai@gmail.com
+git push -u origin main
+```
+
+Run the first push once so the PR has a base branch. Optionally install the GitHub CLI (`brew install gh`, then
+`gh auth login`) so `/ship` can open the PR itself. Without `gh`, `/ship` prints a compare link to open the PR by hand.
+
+To update: `git pull` in a clone of agency-agents, run `./scripts/convert.sh --tool cursor`, then from this
+project root run
+`./scripts/install.sh --tool cursor --agent frontend-developer,backend-architect,application-security-engineer,code-reviewer`
+(re-apply the `globs` in the two `.mdc` files afterwards).
