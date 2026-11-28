@@ -112,7 +112,10 @@ export async function listOrders(opts: { status?: string; q?: string; limit?: nu
     where.push(`(o.customer_name ilike $${params.length} or o.ig_handle ilike $${params.length} or p.name ilike $${params.length} or p.brand ilike $${params.length})`);
   }
   return sql<OrderView>(
-    `select o.*, p.name as product_name, p.brand, p.category, v.size,
+    `select o.*, p.name as product_name, p.brand, v.size,
+            coalesce((select json_agg(json_build_object('id', c.id, 'slug', c.slug, 'name', c.name, 'color', c.color) order by c.sort_order, lower(c.name))
+                        from product_categories pc join categories c on c.id = pc.category_id
+                       where pc.product_id = p.id), '[]'::json) as categories,
             (p.image is not null) as has_image, p.image_version
        from orders o join products p on p.id = o.product_id join variants v on v.id = o.variant_id
        ${where.length ? "where " + where.join(" and ") : ""}

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { SampleButton } from "@/components/SampleButton";
 import { CategoryBadge, EmptyState, ProductThumb, Stat } from "@/components/ui";
-import { CATEGORIES, CATEGORY_LABEL } from "@/lib/config";
 import { getFormatter } from "@/lib/format";
 import { dashboardStats, type SalesWindow } from "@/lib/stats";
 
@@ -166,17 +165,22 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {CATEGORIES.map((c) => {
-            const items = s.top.filter((t) => t.category === c);
-            const cat = s.byCategory.find((b) => b.category === c);
+          {s.categories.length === 0 && (
+            <p className="text-sm text-slate-500">
+              No categories yet. <Link href="/categories" className="font-medium text-brand-600">Add one</Link> to see top sellers here.
+            </p>
+          )}
+          {s.categories.map((c) => {
+            const items = s.top.filter((t) => t.category_id === c.id);
+            const cat = s.byCategory.find((b) => b.category_id === c.id);
             return (
-              <div key={c} className="card p-4">
+              <div key={c.id} className="card p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <CategoryBadge category={c} />
                   <span className="text-xs text-slate-500">{cat?.available ?? 0} in stock</span>
                 </div>
                 {items.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-slate-400">No {CATEGORY_LABEL[c].toLowerCase()} sales yet</p>
+                  <p className="py-4 text-center text-sm text-slate-400">No {c.name.toLowerCase()} sales yet</p>
                 ) : (
                   <ol className="space-y-2">
                     {items.map((t, i) => (

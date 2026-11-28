@@ -7,7 +7,7 @@ type Preview = {
   rows: number;
   products: number;
   errors: string[];
-  sample: { line: number; category: string; brand: string; name: string; size: string; stock: number; price: number | null }[];
+  sample: { line: number; categories: { id: number; name: string }[]; brand: string; name: string; size: string; stock: number; price: number | null }[];
 };
 type Summary = {
   productsCreated: number;
@@ -85,10 +85,10 @@ export function ImportForm() {
           {preview.sample.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="text-slate-500"><tr><th className="py-1 pr-3">Category</th><th className="pr-3">Brand</th><th className="pr-3">Name</th><th className="pr-3">Size</th><th className="pr-3">Stock</th><th>Price</th></tr></thead>
+                <thead className="text-slate-500"><tr><th className="py-1 pr-3">Categories</th><th className="pr-3">Brand</th><th className="pr-3">Name</th><th className="pr-3">Size</th><th className="pr-3">Stock</th><th>Price</th></tr></thead>
                 <tbody>
                   {preview.sample.map((r) => (
-                    <tr key={r.line} className="border-t border-slate-100"><td className="py-1 pr-3 capitalize">{r.category}</td><td className="pr-3">{r.brand}</td><td className="pr-3">{r.name}</td><td className="pr-3">{r.size}</td><td className="pr-3">{r.stock}</td><td>{r.price ?? "–"}</td></tr>
+                    <tr key={r.line} className="border-t border-slate-100"><td className="py-1 pr-3">{r.categories.map((c) => c.name).join(", ")}</td><td className="pr-3">{r.brand}</td><td className="pr-3">{r.name}</td><td className="pr-3">{r.size}</td><td className="pr-3">{r.stock}</td><td>{r.price ?? "–"}</td></tr>
                   ))}
                 </tbody>
               </table>

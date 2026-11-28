@@ -1,6 +1,6 @@
 import "server-only";
 import { sql } from "./db";
-import type { Category } from "./config";
+import { listCategories } from "./categories";
 import { getStoreSettings } from "./store-settings";
 
 const SOLD_AT = `coalesce(o.paid_at, o.created_at)`;
@@ -45,14 +45,13 @@ export async function dashboardStats(topPeriod: "30d" | "all") {
     product_id: number;
     name: string;
     brand: string;
-    category: Category;
     size: string;
     available: number;
     threshold: number;
     image_version: number;
     has_image: boolean;
   }>(
-    `select p.id as product_id, p.name, p.brand, p.category, v.size, (v.stock - v.reserved) as available,
+    `select p.id as product_id, p.name, p.brand, v.size, (v.stock - v.reserved) as available,
             p.low_stock_threshold as threshold, p.image_version, (p.image is not null) as has_image
        from variants v join products p on p.id = v.product_id
       where p.active and (v.stock - v.reserved) <= p.low_stock_threshold
@@ -100,8 +99,9 @@ export async function dashboardStats(topPeriod: "30d" | "all") {
   );
 
   const periodFilter = topPeriod === "30d" ? `and ${SOLD_AT} >= now() - interval '30 days'` : "";
+  // A product in several categories appears in the leaderboard of each one.
   const top = await sql<{
-    category: Category;
+    category_id: number;
     product_id: number;
     name: string;
     brand: string;
@@ -111,22 +111,31 @@ export async function dashboardStats(topPeriod: "30d" | "all") {
     has_image: boolean;
   }>(
     `select * from (
-       select p.category, p.id as product_id, p.name, p.brand, sum(o.qty) as units,
+       select c.id as category_id, p.id as product_id, p.name, p.brand, sum(o.qty) as units,
               sum(o.qty * o.unit_price) as revenue, p.image_version, (p.image is not null) as has_image,
-              row_number() over (partition by p.category order by sum(o.qty) desc, sum(o.qty * o.unit_price) desc) as rn
-         from orders o join products p on p.id = o.product_id
+              row_number() over (partition by c.id order by sum(o.qty) desc, sum(o.qty * o.unit_price) desc) as rn
+         from orders o
+         join products p on p.id = o.product_id
+         join product_categories pc on pc.product_id = p.id
+         join categories c on c.id = pc.category_id
         where o.status in ('paid','completed') ${periodFilter}
-        group by p.category, p.id
-     ) t where rn <= 3 order by category, rn`,
+        group by c.id, p.id
+     ) t where rn <= 3 order by category_id, rn`,
   );
 
-  const byCategory = await sql<{ category: Category; on_hand: number; available: number; products: number }>(
-    `select p.category, coalesce(sum(v.stock),0) as on_hand, coalesce(sum(v.stock - v.reserved),0) as available,
+  // Stock per category. A product in several categories counts in each, so these don't add up to the shop total.
+  const byCategory = await sql<{ category_id: number; on_hand: number; available: number; products: number }>(
+    `select c.id as category_id, coalesce(sum(v.stock),0) as on_hand, coalesce(sum(v.stock - v.reserved),0) as available,
             count(distinct p.id) as products
-       from products p left join variants v on v.product_id = p.id where p.active group by p.category`,
+       from categories c
+       left join product_categories pc on pc.category_id = c.id
+       left join products p on p.id = pc.product_id and p.active
+       left join variants v on v.product_id = p.id
+      group by c.id`,
   );
+  const categories = await listCategories();
 
   const [newPosts] = await sql<{ n: number }>(`select count(*) as n from ig_posts where status = 'new'`);
 
-  return { totals, lowRows, open, toShip, reservations, week, prevWeek, month, prevMonth, weekly, top, byCategory, newPosts: newPosts.n };
+  return { totals, lowRows, open, toShip, reservations, week, prevWeek, month, prevMonth, weekly, top, byCategory, categories, newPosts: newPosts.n };
 }

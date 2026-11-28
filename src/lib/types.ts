@@ -1,10 +1,23 @@
-import type { Category, OrderStatus } from "./config";
+import type { OrderStatus } from "./config";
 
 export type Variant = { id: number; product_id: number; size: string; stock: number; reserved: number };
 
+export type Category = {
+  id: number;
+  slug: string;
+  name: string;
+  color: string;
+  sort_order: number;
+  created_at: Date;
+};
+
+/** The slice of a category that is shown next to a product or order. */
+export type CategoryRef = Pick<Category, "id" | "slug" | "name" | "color">;
+
+export type CategoryWithCount = Category & { product_count: number };
+
 export type Product = {
   id: number;
-  category: Category;
   brand: string;
   name: string;
   description: string;
@@ -17,7 +30,7 @@ export type Product = {
   created_at: Date;
 };
 
-export type ProductWithVariants = Product & { variants: Variant[] };
+export type ProductWithVariants = Product & { variants: Variant[]; categories: CategoryRef[] };
 
 export type Order = {
   id: number;
@@ -38,7 +51,7 @@ export type Order = {
 export type OrderView = Order & {
   product_name: string;
   brand: string;
-  category: Category;
+  categories: CategoryRef[];
   size: string;
   has_image: boolean;
   image_version: number;

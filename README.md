@@ -56,16 +56,25 @@ Refresh long-lived tokens before expiry: `GET https://graph.instagram.com/refres
 Without a token the page runs in **sample mode** ("Load sample posts"), and you can always use
 **Add a post by hand** (paste link + caption + upload a photo).
 
-In the inbox, each post can be **Created as a product** (brand, category, name and price are guessed from the
+In the inbox, each post can be **Created as a product** (brand, categories, name and price are guessed from the
 caption), **attached** to an existing product, or dismissed. Instagram image URLs expire, so the post photo is copied
 into the product when you create/attach it.
 
 ## Import / export
 
 - Export inventory, sales and all orders as `.xlsx` or `.csv` (Data page).
-- Import `.csv` or `.xlsx` with columns `category, name` (required) and `brand, size, stock, price, cost`
+- Import `.csv` or `.xlsx` with columns `categories, name` (required) and `brand, size, stock, price, cost`
   (one row per size). Column names like `model`, `qty`, `us size`, `srp`, `capital` also work. You get a preview
   first and can choose to *replace* or *add to* existing stock.
+- `categories` holds names of existing categories. Put several in one cell separated by `;` (e.g. `Running; Casual`).
+  Importing adds categories to an existing product and never removes any.
+
+## Categories
+
+Categories live in their own table and are linked to products many-to-many (`categories` and
+`product_categories`, see `migrations/002_categories.sql`). A shoe can be in several categories and a category holds
+many shoes. Manage them on the **Categories** page (name and colour). Deleting a category keeps its
+products; they just lose that tag.
 
 ## Layout
 

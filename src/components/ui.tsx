@@ -1,15 +1,19 @@
-import type { Category, OrderStatus } from "@/lib/config";
-import { CATEGORY_LABEL } from "@/lib/config";
+import { CATEGORY_COLORS, type CategoryColor, type OrderStatus } from "@/lib/config";
+import type { CategoryRef } from "@/lib/types";
 
-const CAT_STYLE: Record<Category, string> = {
-  running: "bg-sky-100 text-sky-800",
-  badminton: "bg-emerald-100 text-emerald-800",
-  tennis: "bg-amber-100 text-amber-800",
-  casual: "bg-violet-100 text-violet-800",
-};
+export const categoryStyle = (color: string) => CATEGORY_COLORS[color as CategoryColor] ?? CATEGORY_COLORS.slate;
 
-export function CategoryBadge({ category }: { category: Category }) {
-  return <span className={`badge ${CAT_STYLE[category]}`}>{CATEGORY_LABEL[category]}</span>;
+export function CategoryBadge({ category }: { category: Pick<CategoryRef, "name" | "color"> }) {
+  return <span className={`badge ${categoryStyle(category.color)}`}>{category.name}</span>;
+}
+
+export function CategoryBadges({ categories }: { categories: CategoryRef[] }) {
+  if (categories.length === 0) return <span className="badge bg-slate-100 text-slate-500">Uncategorized</span>;
+  return (
+    <>
+      {categories.map((c) => <CategoryBadge key={c.id} category={c} />)}
+    </>
+  );
 }
 
 const STATUS_STYLE: Record<OrderStatus, string> = {

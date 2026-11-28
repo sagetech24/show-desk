@@ -2,7 +2,8 @@ import "server-only";
 import ExcelJS from "exceljs";
 import Papa from "papaparse";
 import { sql } from "./db";
-import { CATEGORIES, type Category } from "./config";
+import { listCategories } from "./categories";
+import type { Category } from "./types";
 
 export type Cell = string | number | boolean | null | Date;
 export type Table = { name: string; columns: string[]; rows: Cell[][] };
@@ -30,34 +31,38 @@ export async function toFile(table: Table, format: "csv" | "xlsx"): Promise<{ bo
   return { body: Buffer.concat([Buffer.from("\ufeff"), Buffer.from(csv)]), type: "text/csv; charset=utf-8", ext: "csv" };
 }
 
+/** Comma-separated category names of the product aliased as `p`. */
+const CATEGORY_NAMES = `coalesce((select string_agg(c.name, ', ' order by c.sort_order, lower(c.name))
+  from product_categories pc join categories c on c.id = pc.category_id where pc.product_id = p.id), '')`;
+
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 16).replace("T", " ") : "");
 
 export async function buildTable(type: string): Promise<Table | null> {
   if (type === "inventory") {
     const rows = await sql<{
-      category: string; brand: string; name: string; size: string | null; stock: number | null; reserved: number | null;
+      categories: string; brand: string; name: string; size: string | null; stock: number | null; reserved: number | null;
       price: number; cost: number; low_stock_threshold: number; active: boolean;
     }>(
-      `select p.category, p.brand, p.name, v.size, v.stock, v.reserved, p.price, p.cost, p.low_stock_threshold, p.active
+      `select ${CATEGORY_NAMES} as categories, p.brand, p.name, v.size, v.stock, v.reserved, p.price, p.cost, p.low_stock_threshold, p.active
          from products p left join variants v on v.product_id = p.id
-        order by p.category, p.brand, p.name, nullif(regexp_replace(v.size, '[^0-9.]', '', 'g'), '')::float nulls last, v.size`,
+        order by p.brand, p.name, p.id, nullif(regexp_replace(v.size, '[^0-9.]', '', 'g'), '')::float nulls last, v.size`,
     );
     return {
       name: "Inventory",
-      columns: ["category", "brand", "name", "size", "stock", "reserved", "available", "price", "cost", "low_stock_level", "active"],
+      columns: ["categories", "brand", "name", "size", "stock", "reserved", "available", "price", "cost", "low_stock_level", "active"],
       rows: rows.map((r) => [
-        r.category, r.brand, r.name, r.size ?? "", r.stock ?? 0, r.reserved ?? 0, (r.stock ?? 0) - (r.reserved ?? 0),
+        r.categories, r.brand, r.name, r.size ?? "", r.stock ?? 0, r.reserved ?? 0, (r.stock ?? 0) - (r.reserved ?? 0),
         r.price, r.cost, r.low_stock_threshold, r.active ? "yes" : "no",
       ]),
     };
   }
   if (type === "orders" || type === "sales") {
     const rows = await sql<{
-      id: number; created_at: Date; customer_name: string; ig_handle: string; category: string; brand: string;
+      id: number; created_at: Date; customer_name: string; ig_handle: string; categories: string; brand: string;
       product_name: string; size: string; qty: number; unit_price: number; status: string; paid_at: Date | null;
       completed_at: Date | null; notes: string;
     }>(
-      `select o.id, o.created_at, o.customer_name, o.ig_handle, p.category, p.brand, p.name as product_name, v.size,
+      `select o.id, o.created_at, o.customer_name, o.ig_handle, ${CATEGORY_NAMES} as categories, p.brand, p.name as product_name, v.size,
               o.qty, o.unit_price, o.status, o.paid_at, o.completed_at, o.notes
          from orders o join products p on p.id = o.product_id join variants v on v.id = o.variant_id
         ${type === "sales" ? "where o.status in ('paid','completed')" : ""}
@@ -65,9 +70,9 @@ export async function buildTable(type: string): Promise<Table | null> {
     );
     return {
       name: type === "sales" ? "Sales" : "Orders",
-      columns: ["id", "date", "customer", "ig_handle", "category", "brand", "product", "size", "qty", "unit_price", "total", "status", "paid_at", "completed_at", "notes"],
+      columns: ["id", "date", "customer", "ig_handle", "categories", "brand", "product", "size", "qty", "unit_price", "total", "status", "paid_at", "completed_at", "notes"],
       rows: rows.map((r) => [
-        r.id, iso(r.created_at), r.customer_name, r.ig_handle, r.category, r.brand, r.product_name, r.size, r.qty,
+        r.id, iso(r.created_at), r.customer_name, r.ig_handle, r.categories, r.brand, r.product_name, r.size, r.qty,
         r.unit_price, r.qty * r.unit_price, r.status, iso(r.paid_at), iso(r.completed_at), r.notes,
       ]),
     };
@@ -76,14 +81,16 @@ export async function buildTable(type: string): Promise<Table | null> {
 }
 
 export const TEMPLATE_CSV =
-  "category,brand,name,size,stock,price,cost\n" +
-  "running,Nike,Pegasus 41,9,4,6995,4300\n" +
-  "running,Nike,Pegasus 41,10,3,6995,4300\n" +
-  "badminton,Yonex,Power Cushion 65 Z3,8,2,6990,4400\n";
+  "categories,brand,name,size,stock,price,cost\n" +
+  "Running,Nike,Pegasus 41,9,4,6995,4300\n" +
+  "Running,Nike,Pegasus 41,10,3,6995,4300\n" +
+  '"Running; Casual",Adidas,Adizero Boston 12,9,2,7500,4700\n' +
+  "Badminton,Yonex,Power Cushion 65 Z3,8,2,6990,4400\n";
 
 export type ImportRow = {
   line: number;
-  category: Category;
+  /** Existing categories this row belongs to (a product can have several). */
+  categories: { id: number; name: string }[];
   brand: string;
   name: string;
   size: string;
@@ -93,7 +100,7 @@ export type ImportRow = {
 };
 
 const ALIASES: Record<string, string[]> = {
-  category: ["category", "type", "sport"],
+  category: ["categories", "category", "type", "sport"],
   brand: ["brand", "make"],
   name: ["name", "product", "model", "product name", "item"],
   size: ["size", "us size", "variant"],
@@ -102,17 +109,35 @@ const ALIASES: Record<string, string[]> = {
   cost: ["cost", "unit cost", "capital", "buy price"],
 };
 
-const CAT_SYNONYMS: [RegExp, Category][] = [
+const CAT_SYNONYMS: [RegExp, string][] = [
   [/run|jog|trail/, "running"],
   [/badminton|shuttle/, "badminton"],
   [/tennis/, "tennis"],
   [/casual|lifestyle|sneaker|street/, "casual"],
 ];
 
-function normCategory(raw: string): Category | null {
-  const s = raw.trim().toLowerCase();
-  if ((CATEGORIES as readonly string[]).includes(s)) return s as Category;
-  return CAT_SYNONYMS.find(([re]) => re.test(s))?.[1] ?? null;
+/** Match one cell token to an existing category by slug, name, or a built-in synonym. */
+function matchCategory(token: string, categories: Category[]): Category | null {
+  const t = token.trim().toLowerCase();
+  if (!t) return null;
+  const exact = categories.find((c) => c.slug === t || c.name.toLowerCase() === t);
+  if (exact) return exact;
+  const slug = CAT_SYNONYMS.find(([re]) => re.test(t))?.[1];
+  return categories.find((c) => c.slug === slug) ?? null;
+}
+
+/** "Running; Casual" -> matched categories plus any names that matched nothing. */
+function parseCategories(raw: string, categories: Category[]) {
+  const whole = categories.find((c) => c.name.toLowerCase() === raw.trim().toLowerCase());
+  if (whole) return { matched: [whole], unknown: [] };
+  const matched = new Map<number, Category>();
+  const unknown: string[] = [];
+  for (const token of raw.split(/[,;|/]/).map((x) => x.trim()).filter(Boolean)) {
+    const c = matchCategory(token, categories);
+    if (c) matched.set(c.id, c);
+    else unknown.push(token);
+  }
+  return { matched: [...matched.values()], unknown };
 }
 
 async function readMatrix(file: File): Promise<string[][]> {
@@ -160,6 +185,7 @@ export async function parseInventoryFile(file: File): Promise<{ rows: ImportRow[
   if (missing.length)
     return { rows: [], errors: [`Missing column(s): ${missing.join(", ")}. Found: ${header.filter(Boolean).join(", ") || "none"}.`] };
 
+  const categories = await listCategories();
   const rows: ImportRow[] = [];
   const errors: string[] = [];
   const get = (r: string[], k: string) => (col[k] >= 0 ? String(r[col[k]] ?? "").trim() : "");
@@ -173,8 +199,12 @@ export async function parseInventoryFile(file: File): Promise<{ rows: ImportRow[
     const line = i + 1;
     const name = get(r, "name");
     if (!name && !get(r, "category")) continue;
-    const category = normCategory(get(r, "category"));
-    if (!category) { errors.push(`Row ${line}: unknown category "${get(r, "category")}" (use running, badminton, tennis or casual).`); continue; }
+    const { matched, unknown } = parseCategories(get(r, "category"), categories);
+    if (matched.length === 0 || unknown.length) {
+      const bad = unknown.length ? unknown.join(", ") : get(r, "category") || "(empty)";
+      errors.push(`Row ${line}: unknown category "${bad}" (available: ${categories.map((c) => c.name).join(", ") || "none, create one first"}). Separate several with ";".`);
+      continue;
+    }
     if (!name) { errors.push(`Row ${line}: missing product name.`); continue; }
     const stockRaw = get(r, "stock");
     const stock = stockRaw === "" ? 0 : Number(stockRaw);
@@ -184,7 +214,7 @@ export async function parseInventoryFile(file: File): Promise<{ rows: ImportRow[
     if ((price !== null && Number.isNaN(price)) || (cost !== null && Number.isNaN(cost)) || (price ?? 0) < 0 || (cost ?? 0) < 0) {
       errors.push(`Row ${line}: price/cost must be numbers.`); continue;
     }
-    rows.push({ line, category, brand: get(r, "brand"), name, size: get(r, "size") || "One size", stock, price, cost });
+    rows.push({ line, categories: matched.map((c) => ({ id: c.id, name: c.name })), brand: get(r, "brand"), name, size: get(r, "size") || "One size", stock, price, cost });
   }
   return { rows, errors };
 }

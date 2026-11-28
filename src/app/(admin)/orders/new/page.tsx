@@ -12,7 +12,7 @@ export default async function NewOrder({ searchParams }: { searchParams: Promise
   const options: OrderProductOption[] = products.map((p) => ({
     id: p.id,
     label: `${p.brand} ${p.name}`.trim(),
-    category: p.category,
+    categories: p.categories.map((c) => c.name),
     price: p.price,
     variants: p.variants.map((v) => ({ id: v.id, size: v.size, available: available(v) })),
   }));

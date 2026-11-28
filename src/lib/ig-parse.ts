@@ -1,18 +1,21 @@
-import type { Category } from "./config";
-
 const BRANDS = [
   "Nike", "Adidas", "ASICS", "Yonex", "Li-Ning", "Victor", "Wilson", "Babolat", "HEAD", "New Balance",
   "Hoka", "Brooks", "Mizuno", "Converse", "Vans", "Puma", "Under Armour", "Saucony", "On Running", "Reebok", "Skechers",
 ];
 
-export type PostGuess = { category: Category; brand: string; name: string; price: number | null };
+/** `categories` are category slugs (a caption can match more than one). */
+export type PostGuess = { categories: string[]; brand: string; name: string; price: number | null };
+
+const CATEGORY_HINTS: [string, RegExp][] = [
+  ["badminton", /badminton|shuttle|bwf/],
+  ["tennis", /tennis|clay|baseline/],
+  ["running", /run|marathon|trail|jog|5k|10k|tempo/],
+];
 
 export function guessFromCaption(caption: string): PostGuess {
   const lower = caption.toLowerCase();
-  let category: Category = "casual";
-  if (/badminton|shuttle|bwf/.test(lower)) category = "badminton";
-  else if (/tennis|clay|baseline/.test(lower)) category = "tennis";
-  else if (/run|marathon|trail|jog|5k|10k|tempo/.test(lower)) category = "running";
+  const categories = CATEGORY_HINTS.filter(([, re]) => re.test(lower)).map(([slug]) => slug);
+  if (categories.length === 0) categories.push("casual");
 
   const brand = BRANDS.find((b) => new RegExp(`\\b${b.replace(/[-]/g, "[- ]?")}\\b`, "i").test(caption)) ?? "";
 
@@ -29,5 +32,5 @@ export function guessFromCaption(caption: string): PostGuess {
     .trim();
   name = name.split(" ").slice(0, brand ? 7 : 8).join(" ");
   if (brand) name = name.replace(new RegExp(`^${brand.replace(/[-]/g, "[- ]?")}\\s*`, "i"), "").trim();
-  return { category, brand, name: name.slice(0, 80), price };
+  return { categories, brand, name: name.slice(0, 80), price };
 }

@@ -1,8 +1,7 @@
 import "server-only";
 import { sql, type Q } from "./db";
 import { UserError } from "./errors";
-import type { Category } from "./config";
-import type { Product, ProductWithVariants, Variant } from "./types";
+import type { CategoryRef, Product, ProductWithVariants, Variant } from "./types";
 
 export const available = (v: Pick<Variant, "stock" | "reserved">) => v.stock - v.reserved;
 
@@ -34,6 +33,7 @@ export function productSummary(p: ProductWithVariants) {
 }
 
 type ProductQuery = {
+  /** Category slug. Matches products that belong to this category (among others). */
   category?: string;
   q?: string;
   includeArchived?: boolean;
@@ -43,10 +43,15 @@ type ProductQuery = {
 const PRODUCT_SELECT = `
   select p.*, coalesce(
     (select json_agg(json_build_object('id', v.id, 'product_id', v.product_id, 'size', v.size, 'stock', v.stock, 'reserved', v.reserved))
-       from variants v where v.product_id = p.id), '[]'::json) as variants
+       from variants v where v.product_id = p.id), '[]'::json) as variants,
+  coalesce(
+    (select json_agg(json_build_object('id', c.id, 'slug', c.slug, 'name', c.name, 'color', c.color) order by c.sort_order, lower(c.name))
+       from product_categories pc join categories c on c.id = pc.category_id where pc.product_id = p.id), '[]'::json) as categories
   from products p`;
 
-function normalize(rows: (Product & { variants: Variant[] })[]): ProductWithVariants[] {
+type ProductRow = Product & { variants: Variant[]; categories: CategoryRef[] };
+
+function normalize(rows: ProductRow[]): ProductWithVariants[] {
   return rows.map((r) => ({ ...r, variants: sortSizes(r.variants) }));
 }
 
@@ -57,14 +62,17 @@ export async function listProducts(opts: ProductQuery = {}): Promise<ProductWith
   else if (!opts.includeArchived) where.push("p.active = true");
   if (opts.category) {
     params.push(opts.category);
-    where.push(`p.category = $${params.length}`);
+    where.push(
+      `exists (select 1 from product_categories pc join categories c on c.id = pc.category_id
+                where pc.product_id = p.id and c.slug = $${params.length})`,
+    );
   }
   if (opts.q?.trim()) {
     params.push(`%${opts.q.trim()}%`);
     where.push(`(p.name ilike $${params.length} or p.brand ilike $${params.length})`);
   }
-  const rows = await sql<Product & { variants: Variant[] }>(
-    `${PRODUCT_SELECT} ${where.length ? "where " + where.join(" and ") : ""} order by p.category, p.brand, p.name`,
+  const rows = await sql<ProductRow>(
+    `${PRODUCT_SELECT} ${where.length ? "where " + where.join(" and ") : ""} order by p.brand, p.name`,
     params,
   );
   return normalize(rows);
@@ -72,7 +80,7 @@ export async function listProducts(opts: ProductQuery = {}): Promise<ProductWith
 
 export async function getProduct(id: number): Promise<ProductWithVariants | null> {
   if (!Number.isInteger(id)) return null;
-  const rows = await sql<Product & { variants: Variant[] }>(`${PRODUCT_SELECT} where p.id = $1`, [id]);
+  const rows = await sql<ProductRow>(`${PRODUCT_SELECT} where p.id = $1`, [id]);
   return rows[0] ? normalize(rows)[0] : null;
 }
 
@@ -103,6 +111,3 @@ export async function adjustVariantStock(
     ]);
   return updated[0];
 }
-
-export const categoryOf = (c: string): Category | null =>
-  (["running", "badminton", "tennis", "casual"] as const).find((x) => x === c) ?? null;

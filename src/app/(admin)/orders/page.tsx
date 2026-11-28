@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { OrderActions } from "@/components/OrderActions";
-import { CategoryBadge, EmptyState, ProductThumb, StatusBadge } from "@/components/ui";
+import { CategoryBadges, EmptyState, ProductThumb, StatusBadge } from "@/components/ui";
 import { ORDER_STATUSES } from "@/lib/config";
 import { sql } from "@/lib/db";
 import { getFormatter } from "@/lib/format";
@@ -74,7 +74,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                     {o.qty}× <Link href={`/products/${o.product_id}`} className="hover:underline">{o.brand} {o.product_name}</Link> · size {o.size}
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <CategoryBadge category={o.category} />
+                    <CategoryBadges categories={o.categories} />
                     {formatDate(o.created_at)} · #{o.id}
                     {o.notes && <span className="italic">“{o.notes}”</span>}
                   </p>

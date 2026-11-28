@@ -1,14 +1,14 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useState } from "react";
 import { createOrderAction } from "@/app/actions/orders";
-import { CATEGORY_LABEL, ORDER_STATUSES, type Category } from "@/lib/config";
+import { ORDER_STATUSES } from "@/lib/config";
 import { useActionToast } from "./Toaster";
 
 export type OrderProductOption = {
   id: number;
   label: string;
-  category: Category;
+  categories: string[];
   price: number;
   variants: { id: number; size: string; available: number }[];
 };
@@ -51,13 +51,6 @@ export function OrderForm({
   const product = products.find((p) => p.id === productId);
   const variant = product?.variants.find((v) => v.id === variantId);
   const total = (Number(price) || 0) * qty;
-
-  const grouped = useMemo(() => {
-    const m = new Map<Category, OrderProductOption[]>();
-    for (const p of products) m.set(p.category, [...(m.get(p.category) ?? []), p]);
-    return [...m.entries()];
-  }, [products]);
-
   function fillFromHandle(h: string) {
     setHandle(h);
     const match = customers.find((c) => c.handle.toLowerCase() === h.trim().toLowerCase() || c.handle.toLowerCase() === `@${h.trim().toLowerCase()}`);
@@ -95,10 +88,8 @@ export function OrderForm({
               if (p) setPrice(String(p.price));
             }}>
             <option value="">Choose a shoe…</option>
-            {grouped.map(([cat, list]) => (
-              <optgroup key={cat} label={CATEGORY_LABEL[cat]}>
-                {list.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </optgroup>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>{p.categories.length ? `${p.label} (${p.categories.join(", ")})` : p.label}</option>
             ))}
           </select>
         </div>
