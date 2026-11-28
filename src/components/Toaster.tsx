@@ -121,7 +121,7 @@ function ToastCard({ toast, onDismiss }: { toast: ToastItem; onDismiss: (key: nu
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
-      className={`toast-in pointer-events-auto flex w-full items-start gap-3 rounded-2xl p-3 pr-2 opacity-60 shadow-lg ${s.box}`}
+      className={`toast-in pointer-events-auto flex w-full items-start gap-3 rounded-2xl p-3 pr-2 opacity-80 shadow-lg ${s.box}`}
     >
       <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-bold" aria-hidden>
         {s.symbol}

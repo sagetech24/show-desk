@@ -23,7 +23,15 @@ export function StockStepper({
   useEffect(() => setValue(stock), [stock]);
 
   const avail = value - reserved;
-  const tone = avail <= 0 ? "border-red-200 bg-red-50" : avail <= threshold ? "border-orange-200 bg-orange-50" : "border-slate-200 bg-white";
+  const state = avail <= 0 ? "out" : avail <= threshold ? "low" : "ok";
+  const tone = {
+    out: "border-red-200 bg-red-50",
+    low: "border-orange-200 bg-orange-50",
+    ok: "border-slate-200 bg-white",
+  }[state];
+  const numColor = { out: "text-red-600", low: "text-orange-600", ok: "text-slate-900" }[state];
+  const btn =
+    "flex h-6 w-6 shrink-0 items-center border border-slate-200 justify-center items-center rounded-lg bg-white text-lg font-semibold leading-none text-slate-700 transition hover:bg-slate-50 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white";
 
   function change(delta: number) {
     const prev = value;
@@ -41,17 +49,22 @@ export function StockStepper({
   }
 
   return (
-    <div className={`rounded-xl border p-2 text-center ${tone}`}>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">US {size}</div>
-      <div className="my-1 flex items-center justify-between gap-1">
-        <button type="button" aria-label={`Remove one from size ${size}`} disabled={pending || avail <= 0} onClick={() => change(-1)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-lg font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 active:scale-95 disabled:opacity-40">−</button>
-        <div className="min-w-0 flex-1">
-          <div className={`text-xl font-bold leading-none ${avail <= 0 ? "text-red-600" : "text-slate-900"}`}>{avail}</div>
-          {reserved > 0 && <div className="mt-0.5 text-[10px] text-amber-700">+{reserved} held</div>}
+    <div className={`rounded-xl border p-2 text-center transition-colors ${tone}`}>
+      <div className="flex items-center justify-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        US {size}
+        {state !== "ok" && (
+          <span className={`rounded px-1 text-[9px] ${state === "out" ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"}`}>
+            {state === "out" ? "OUT" : "LOW"}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-1 mt-2">
+        <button type="button" aria-label={`Remove one from size ${size}`} disabled={pending || avail <= 0} onClick={() => change(-1)} className={btn}>−</button>
+        <div className="min-w-0 flex-1 mt-3" aria-live="polite">
+          <div className={`text-xl font-bold leading-none tabular-nums ${numColor}`}>{avail}</div>
+          <div className="mt-1 h-3 text-[10px] leading-3 text-amber-700">{reserved > 0 ? `+${reserved} held` : ""}</div>
         </div>
-        <button type="button" aria-label={`Add one to size ${size}`} disabled={pending} onClick={() => change(1)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-lg font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 active:scale-95 disabled:opacity-40">+</button>
+        <button type="button" aria-label={`Add one to size ${size}`} disabled={pending} onClick={() => change(1)} className={btn}>+</button>
       </div>
     </div>
   );
