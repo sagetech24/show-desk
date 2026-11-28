@@ -46,13 +46,17 @@ export function CategoryManager({ categories }: { categories: CategoryWithCount[
     <div className="space-y-5">
       <section className="card space-y-3 p-4 sm:p-5">
         <h2 className="font-semibold">Add a category</h2>
-        <CategoryForm />
+        <div className="max-w-xl">
+          <CategoryForm />
+        </div>
       </section>
 
       {categories.length === 0 ? (
         <p className="card p-6 text-center text-sm text-slate-500">No categories yet. Add your first one above.</p>
       ) : (
-        <ul className="space-y-3">
+        // CSS columns give a masonry layout: tiles keep their own height (expanding one to edit
+        // doesn't stretch its neighbours) and flow down each column.
+        <ul className="columns-1 gap-4 sm:columns-2 lg:columns-3 [&>li]:mb-4 [&>li]:break-inside-avoid">
           {categories.map((c) => (
             <li key={c.id}>
               <details className="card group p-4">
