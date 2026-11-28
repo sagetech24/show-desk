@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SampleButton } from "@/components/SampleButton";
 import { CategoryBadge, EmptyState, ProductThumb, Stat } from "@/components/ui";
 import { CATEGORIES, CATEGORY_LABEL } from "@/lib/config";
-import { formatMoney, timeAgo } from "@/lib/format";
+import { getFormatter } from "@/lib/format";
 import { dashboardStats, type SalesWindow } from "@/lib/stats";
 
 export const metadata = { title: "Home" };
@@ -13,7 +13,19 @@ function delta(cur: number, prev: number) {
   return `${d >= 0 ? "▲" : "▼"} ${Math.abs(Math.round(d))}%`;
 }
 
-function Sales({ label, w, prev, period }: { label: string; w: SalesWindow; prev: SalesWindow; period: string }) {
+function Sales({
+  label,
+  w,
+  prev,
+  period,
+  formatMoney,
+}: {
+  label: string;
+  w: SalesWindow;
+  prev: SalesWindow;
+  period: string;
+  formatMoney: (n: number) => string;
+}) {
   return (
     <Stat
       label={label}
@@ -33,7 +45,7 @@ function Sales({ label, w, prev, period }: { label: string; w: SalesWindow; prev
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ top?: string }> }) {
   const sp = await searchParams;
   const top = sp.top === "all" ? "all" : "30d";
-  const s = await dashboardStats(top);
+  const [s, { formatMoney, timeAgo }] = await Promise.all([dashboardStats(top), getFormatter()]);
 
   if (s.totals.products === 0) {
     return (
@@ -73,8 +85,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       </section>
 
       <section className="grid gap-3 md:grid-cols-2">
-        <Sales label="Sales this week" w={s.week} prev={s.prevWeek} period="last week" />
-        <Sales label="Sales this month" w={s.month} prev={s.prevMonth} period="last month" />
+        <Sales label="Sales this week" w={s.week} prev={s.prevWeek} period="last week" formatMoney={formatMoney} />
+        <Sales label="Sales this month" w={s.month} prev={s.prevMonth} period="last month" formatMoney={formatMoney} />
       </section>
 
       <section className="card p-4">

@@ -3,7 +3,7 @@ import { OrderActions } from "@/components/OrderActions";
 import { CategoryBadge, EmptyState, ProductThumb, StatusBadge } from "@/components/ui";
 import { ORDER_STATUSES } from "@/lib/config";
 import { sql } from "@/lib/db";
-import { formatDate, formatMoney } from "@/lib/format";
+import { getFormatter } from "@/lib/format";
 import { listOrders } from "@/lib/orders";
 
 export const metadata = { title: "Orders" };
@@ -20,6 +20,7 @@ const TABS: { key: string; label: string }[] = [
 
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
+  const { formatDate, formatMoney } = await getFormatter();
   const status = sp.status && (ORDER_STATUSES as readonly string[]).concat("all").includes(sp.status) ? sp.status : "reserved";
   const [orders, counts] = await Promise.all([
     listOrders({ status, q: sp.q }),

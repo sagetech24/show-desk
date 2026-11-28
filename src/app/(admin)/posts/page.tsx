@@ -2,10 +2,9 @@ import Link from "next/link";
 import { AttachControl, ManualPostForm, PostStatusButton, SyncButton } from "@/components/PostComponents";
 import { EmptyState } from "@/components/ui";
 import { sql } from "@/lib/db";
-import { timeAgo } from "@/lib/format";
+import { getFormatter } from "@/lib/format";
 import { guessFromCaption } from "@/lib/ig-parse";
 import { igConfig } from "@/lib/instagram";
-import { formatMoney } from "@/lib/format";
 import type { IgPost } from "@/lib/types";
 
 export const metadata = { title: "Posts" };
@@ -18,6 +17,7 @@ const TABS = [
 
 export default async function PostsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const sp = await searchParams;
+  const { formatMoney, timeAgo } = await getFormatter();
   const tab = TABS.find((t) => t.key === sp.tab)?.key ?? "new";
   const ig = igConfig();
   const [posts, counts, products] = await Promise.all([

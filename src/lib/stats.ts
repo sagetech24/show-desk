@@ -1,14 +1,14 @@
 import "server-only";
 import { sql } from "./db";
-import { config } from "./config";
 import type { Category } from "./config";
+import { getStoreSettings } from "./store-settings";
 
 const SOLD_AT = `coalesce(o.paid_at, o.created_at)`;
 const LOCAL_SOLD = `(${SOLD_AT} at time zone $1)`;
 
 export type SalesWindow = { revenue: number; profit: number; orders: number; units: number };
 
-async function salesSince(unit: "week" | "month", previous: boolean): Promise<SalesWindow> {
+async function salesSince(unit: "week" | "month", previous: boolean, timezone: string): Promise<SalesWindow> {
   const start = `date_trunc('${unit}', now() at time zone $1)`;
   const range = previous
     ? `${LOCAL_SOLD} >= ${start} - interval '1 ${unit}' and ${LOCAL_SOLD} < ${start}`
@@ -19,12 +19,13 @@ async function salesSince(unit: "week" | "month", previous: boolean): Promise<Sa
             count(*) as orders, coalesce(sum(o.qty),0) as units
        from orders o join products p on p.id = o.product_id
       where o.status in ('paid','completed') and ${range}`,
-    [config.timezone],
+    [timezone],
   );
   return rows[0];
 }
 
 export async function dashboardStats(topPeriod: "30d" | "all") {
+  const { timezone } = await getStoreSettings();
   const [totals] = await sql<{
     products: number;
     on_hand: number;
@@ -80,10 +81,10 @@ export async function dashboardStats(topPeriod: "30d" | "all") {
   );
 
   const [week, prevWeek, month, prevMonth] = await Promise.all([
-    salesSince("week", false),
-    salesSince("week", true),
-    salesSince("month", false),
-    salesSince("month", true),
+    salesSince("week", false, timezone),
+    salesSince("week", true, timezone),
+    salesSince("month", false, timezone),
+    salesSince("month", true, timezone),
   ]);
 
   const weekly = await sql<{ week_start: string; revenue: number }>(
@@ -95,7 +96,7 @@ export async function dashboardStats(topPeriod: "30d" | "all") {
                        where o.status in ('paid','completed')
                          and date_trunc('week', ${LOCAL_SOLD}) = weeks.w), 0) as revenue
        from weeks order by weeks.w`,
-    [config.timezone],
+    [timezone],
   );
 
   const periodFilter = topPeriod === "30d" ? `and ${SOLD_AT} >= now() - interval '30 days'` : "";
