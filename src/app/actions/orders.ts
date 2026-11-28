@@ -6,6 +6,7 @@ import { assertAdmin } from "@/lib/auth";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/config";
 import { toState, UserError, type ActionState } from "@/lib/errors";
 import { cleanHandle } from "@/lib/format";
+import { setFlash } from "@/lib/flash";
 import { createOrder, setOrderStatus } from "@/lib/orders";
 
 export async function createOrderAction(_: ActionState, form: FormData): Promise<ActionState> {
@@ -39,6 +40,7 @@ export async function createOrderAction(_: ActionState, form: FormData): Promise
       date,
     });
     revalidatePath("/", "layout");
+    await setFlash("Order saved.");
   } catch (e) {
     return toState(e);
   }
@@ -51,7 +53,7 @@ export async function setStatusAction(orderId: number, status: OrderStatus): Pro
     if (!ORDER_STATUSES.includes(status)) throw new UserError("Invalid status.");
     await setOrderStatus(Number(orderId), status);
     revalidatePath("/", "layout");
-    return { ok: "Updated" };
+    return { ok: status === "cancelled" ? "Order cancelled." : status === "reserved" ? "Order reopened." : `Order marked ${status}.` };
   } catch (e) {
     return toState(e);
   }
