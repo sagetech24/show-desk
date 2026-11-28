@@ -12,6 +12,15 @@
 html { -webkit-text-size-adjust: 100%; }
 body { @apply bg-slate-100 text-slate-900 antialiased; }
 
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(12px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast-in { animation: toast-in .18s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .toast-in { animation: none; }
+}
+
 @layer components {
   .card { @apply rounded-2xl border border-slate-200 bg-white shadow-sm; }
   .btn { @apply inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-50; }
