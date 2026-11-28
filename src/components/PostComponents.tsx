@@ -4,21 +4,19 @@ import { useActionState, useEffect, useState } from "react";
 import { addManualPostAction, attachPostAction, setPostStatusAction, syncPostsAction } from "@/app/actions/posts";
 import { ActionButton } from "./ActionButton";
 import { ImagePicker } from "./ImagePicker";
+import { useActionToast } from "./Toaster";
 
 export function SyncButton({ connected }: { connected: boolean }) {
-  const [msg, setMsg] = useState("");
   return (
-    <div className="flex flex-col items-start gap-1 sm:items-end">
-      <ActionButton className="btn btn-primary" action={syncPostsAction} onDone={(r) => setMsg(r?.ok ?? "")}>
-        {connected ? "Sync from Instagram" : "Load sample posts"}
-      </ActionButton>
-      {msg && <p role="status" className="text-xs text-emerald-700">{msg}</p>}
-    </div>
+    <ActionButton className="btn btn-primary" action={syncPostsAction}>
+      {connected ? "Sync from Instagram" : "Load sample posts"}
+    </ActionButton>
   );
 }
 
 export function ManualPostForm() {
   const [state, action, pending] = useActionState(addManualPostAction, undefined);
+  useActionToast(state);
   const [open, setOpen] = useState(false);
   const [version, setVersion] = useState(0);
   useEffect(() => {
@@ -45,8 +43,6 @@ export function ManualPostForm() {
             <label className="label" htmlFor="image_url">…or image link (optional)</label>
             <input id="image_url" name="image_url" type="url" className="input" placeholder="https://…" />
           </div>
-          {state?.error && <p role="alert" className="text-sm text-red-600">{state.error}</p>}
-          {state?.ok && <p role="status" className="text-sm text-emerald-700">{state.ok}</p>}
           <button className="btn btn-primary" disabled={pending}>{pending ? "Adding…" : "Add to inbox"}</button>
         </form>
       )}

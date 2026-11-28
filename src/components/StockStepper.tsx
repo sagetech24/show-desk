@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { adjustStockAction } from "@/app/actions/products";
+import { useToast } from "./Toaster";
 
 export function StockStepper({
   variantId,
@@ -17,7 +18,7 @@ export function StockStepper({
   threshold: number;
 }) {
   const [value, setValue] = useState(stock);
-  const [error, setError] = useState("");
+  const toast = useToast();
   const [pending, start] = useTransition();
   useEffect(() => setValue(stock), [stock]);
 
@@ -27,18 +28,20 @@ export function StockStepper({
   function change(delta: number) {
     const prev = value;
     setValue(prev + delta);
-    setError("");
     start(async () => {
       const r = await adjustStockAction(variantId, delta);
       if (r?.error) {
         setValue(prev);
-        setError(r.error);
+        toast.error(r.error);
+      } else {
+        // Same id per size, so rapid +/- taps update one toast instead of stacking.
+        toast.success(`US ${size} stock ${delta > 0 ? "increased" : "decreased"}.`, { id: `stock-${variantId}` });
       }
     });
   }
 
   return (
-    <div className={`rounded-xl border p-2 text-center ${tone}`} title={error || undefined}>
+    <div className={`rounded-xl border p-2 text-center ${tone}`}>
       <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">US {size}</div>
       <div className="my-1 flex items-center justify-between gap-1">
         <button type="button" aria-label={`Remove one from size ${size}`} disabled={pending || avail <= 0} onClick={() => change(-1)}
@@ -50,7 +53,6 @@ export function StockStepper({
         <button type="button" aria-label={`Add one to size ${size}`} disabled={pending} onClick={() => change(1)}
           className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-lg font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 active:scale-95 disabled:opacity-40">+</button>
       </div>
-      {error && <p role="alert" className="text-[10px] leading-tight text-red-600">{error}</p>}
     </div>
   );
 }
