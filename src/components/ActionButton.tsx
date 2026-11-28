@@ -1,42 +1,46 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import type { ActionState } from "@/lib/errors";
+import { useToast } from "./Toaster";
 
 export function ActionButton({
   action,
   children,
   className = "btn btn-sm",
   confirm,
+  successMessage,
   onDone,
 }: {
   action: () => Promise<ActionState>;
   children: React.ReactNode;
   className?: string;
   confirm?: string;
+  /** Shown when the action succeeds without returning its own message. */
+  successMessage?: string;
   onDone?: (r: ActionState) => void;
 }) {
   const [pending, start] = useTransition();
-  const [error, setError] = useState<string>();
+  const toast = useToast();
   return (
-    <span className="inline-flex flex-col">
-      <button
-        type="button"
-        className={className}
-        disabled={pending}
-        onClick={() => {
-          if (confirm && !window.confirm(confirm)) return;
-          setError(undefined);
-          start(async () => {
+    <button
+      type="button"
+      className={className}
+      disabled={pending}
+      onClick={() => {
+        if (confirm && !window.confirm(confirm)) return;
+        start(async () => {
+          try {
             const r = await action();
-            if (r?.error) setError(r.error);
+            toast.fromState(r, successMessage);
             onDone?.(r);
-          });
-        }}
-      >
-        {pending ? "…" : children}
-      </button>
-      {error && <span role="alert" className="mt-1 max-w-56 text-xs text-red-600">{error}</span>}
-    </span>
+          } catch {
+            toast.error("Something went wrong. Please try again.");
+          }
+        });
+      }}
+    >
+      {pending ? "…" : children}
+    </button>
   );
 }

@@ -7,6 +7,7 @@ import { CATEGORIES } from "@/lib/config";
 import { sql, tx } from "@/lib/db";
 import { toState, UserError, type ActionState } from "@/lib/errors";
 import { adjustVariantStock } from "@/lib/inventory";
+import { setFlash } from "@/lib/flash";
 import { snapshotImage } from "@/lib/instagram";
 
 const IMAGE_RE = /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/;
@@ -122,6 +123,7 @@ export async function saveProductAction(_: ActionState, form: FormData): Promise
     }
 
     revalidatePath("/", "layout");
+    await setFlash(id ? `${name} updated.` : `${name} created.`);
     target = postId ? "/posts?tab=linked" : id ? "/inventory" : `/products/${productId}`;
   } catch (e) {
     return toState(e);
@@ -135,7 +137,7 @@ export async function adjustStockAction(variantId: number, delta: number): Promi
     if (!Number.isInteger(delta) || Math.abs(delta) > 1000) throw new UserError("Invalid amount.");
     await tx((q) => adjustVariantStock(q, Number(variantId), delta, "adjust", { note: "Quick adjust" }));
     revalidatePath("/", "layout");
-    return { ok: "Saved" };
+    return { ok: delta > 0 ? "Stock increased." : "Stock decreased." };
   } catch (e) {
     return toState(e);
   }
@@ -170,7 +172,7 @@ export async function archiveProductAction(productId: number, active: boolean): 
     await assertAdmin();
     await sql("update products set active = $2 where id = $1", [Number(productId), active]);
     revalidatePath("/", "layout");
-    return { ok: active ? "Restored" : "Archived" };
+    return { ok: active ? "Product restored." : "Product archived." };
   } catch (e) {
     return toState(e);
   }
@@ -182,6 +184,7 @@ export async function deleteProductAction(productId: number): Promise<ActionStat
     const used = await sql("select 1 from orders where product_id = $1 limit 1", [Number(productId)]);
     if (used.length) throw new UserError("This product has orders, so it can't be deleted. Archive it instead.");
     await sql("delete from products where id = $1", [Number(productId)]);
+    await setFlash("Product deleted.");
   } catch (e) {
     return toState(e);
   }

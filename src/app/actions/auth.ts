@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
@@ -14,6 +15,7 @@ import {
   setStoredPassword,
   startSession,
 } from "@/lib/auth";
+import { setFlash } from "@/lib/flash";
 import { toState, UserError, type ActionState } from "@/lib/errors";
 import { loadSampleData, productCount } from "@/lib/sample-data";
 
@@ -29,6 +31,7 @@ export async function loginAction(_: ActionState, form: FormData): Promise<Actio
   }
   clearLoginFailures(key);
   await startSession();
+  await setFlash("Signed in.");
   redirect("/");
 }
 
@@ -41,6 +44,7 @@ export async function setupAction(_: ActionState, form: FormData): Promise<Actio
     await setStoredPassword(password);
     if (form.get("sample") === "on" && (await productCount()) === 0) await loadSampleData();
     await startSession();
+    await setFlash("Admin password created. Welcome!");
   } catch (e) {
     return toState(e);
   }
@@ -49,6 +53,7 @@ export async function setupAction(_: ActionState, form: FormData): Promise<Actio
 
 export async function logoutAction() {
   await endSession();
+  await setFlash("Signed out.", "info");
   redirect("/login");
 }
 
@@ -73,8 +78,9 @@ export async function loadSampleAction(): Promise<ActionState> {
   try {
     await assertAdmin();
     await loadSampleData();
+    revalidatePath("/", "layout");
+    return { ok: "Sample data loaded." };
   } catch (e) {
     return toState(e);
   }
-  redirect("/");
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useToast } from "./Toaster";
 
 type Preview = {
   rows: number;
@@ -19,18 +20,17 @@ type Summary = {
 };
 
 export function ImportForm() {
+  const toast = useToast();
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState<"set" | "add">("set");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function send(commit: boolean) {
     if (!file) return;
     setBusy(true);
-    setError("");
     const fd = new FormData();
     fd.set("file", file);
     fd.set("mode", mode);
@@ -41,15 +41,19 @@ export function ImportForm() {
       if (!res.ok) throw new Error(body.error ?? "Import failed");
       if (commit) {
         setSummary(body.summary);
+        const s: Summary = body.summary;
+        toast.success(`Import finished: ${s.productsCreated} new, ${s.productsUpdated} updated products.`);
         setPreview(null);
         setFile(null);
         if (input.current) input.current.value = "";
       } else {
         setPreview(body.preview);
+        toast.info(`File checked: ${body.preview.rows} rows ready to import.`);
         setSummary(null);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Import failed");
+      const msg = e instanceof Error ? e.message : "Import failed";
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -65,7 +69,7 @@ export function ImportForm() {
           type="file"
           accept=".csv,.xlsx"
           className="input file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm"
-          onChange={(e) => { setFile(e.target.files?.[0] ?? null); setPreview(null); setSummary(null); setError(""); }}
+          onChange={(e) => { setFile(e.target.files?.[0] ?? null); setPreview(null); setSummary(null); }}
         />
       </div>
       <fieldset className="space-y-2">
@@ -74,8 +78,6 @@ export function ImportForm() {
         <label className="flex items-start gap-2 text-sm"><input type="radio" checked={mode === "add"} onChange={() => setMode("add")} className="mt-1" /> <span><strong>Add</strong> the number to current stock (use for a delivery)</span></label>
       </fieldset>
       <button className="btn" disabled={!file || busy} onClick={() => send(false)}>{busy && !preview ? "Checking…" : "Check file"}</button>
-
-      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       {preview && (
         <div className="space-y-3 rounded-xl border border-slate-200 p-3">

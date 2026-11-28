@@ -3,9 +3,11 @@
 import { useActionState } from "react";
 import { archiveProductAction, deleteProductAction, restockAction } from "@/app/actions/products";
 import { ActionButton } from "./ActionButton";
+import { useActionToast } from "./Toaster";
 
 export function RestockForm({ variants }: { variants: { id: number; size: string }[] }) {
   const [state, action, pending] = useActionState(restockAction, undefined);
+  useActionToast(state);
   if (variants.length === 0) return <p className="text-sm text-slate-500">Add sizes first to record a purchase.</p>;
   return (
     <form action={action} className="grid grid-cols-2 gap-3">
@@ -27,8 +29,6 @@ export function RestockForm({ variants }: { variants: { id: number; size: string
       </div>
       <div className="col-span-2">
         <button className="btn btn-primary" disabled={pending}>{pending ? "Saving…" : "Add purchase to stock"}</button>
-        {state?.ok && <span className="ml-3 text-sm text-emerald-700">{state.ok}</span>}
-        {state?.error && <span role="alert" className="ml-3 text-sm text-red-600">{state.error}</span>}
       </div>
     </form>
   );
