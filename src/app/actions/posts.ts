@@ -65,7 +65,7 @@ export async function setPostStatusAction(postId: number, status: "new" | "dismi
     await sql("update ig_posts set status = $2, product_id = null where id = $1", [Number(postId), status]);
     revalidatePath("/posts");
     revalidatePath("/", "layout");
-    return { ok: "Updated" };
+    return { ok: status === "dismissed" ? "Post dismissed." : "Post moved back to the inbox." };
   } catch (e) {
     return toState(e);
   }
@@ -85,7 +85,7 @@ export async function attachPostAction(postId: number, productId: number, useIma
     }
     revalidatePath("/posts");
     revalidatePath("/", "layout");
-    return { ok: "Attached." };
+    return { ok: "Post attached to product." };
   } catch (e) {
     return toState(e);
   }

@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { createOrderAction } from "@/app/actions/orders";
 import { CATEGORY_LABEL, ORDER_STATUSES, type Category } from "@/lib/config";
+import { useActionToast } from "./Toaster";
 
 export type OrderProductOption = {
   id: number;
@@ -37,6 +38,7 @@ export function OrderForm({
   locale: string;
 }) {
   const [state, action, pending] = useActionState(createOrderAction, undefined);
+  useActionToast(state);
   const first = products.find((p) => p.id === initialProductId);
   const [productId, setProductId] = useState<number | "">(first?.id ?? "");
   const [variantId, setVariantId] = useState<number | "">(initialVariantId ?? "");
@@ -148,7 +150,6 @@ export function OrderForm({
         </div>
       </section>
 
-      {state?.error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{state.error}</p>}
       <div className="sticky bottom-20 z-10 flex items-center justify-between gap-3 rounded-2xl bg-white/95 p-3 shadow-lg ring-1 ring-slate-200 backdrop-blur lg:static lg:bottom-auto lg:shadow-none lg:ring-0">
         <div className="text-sm"><span className="text-slate-500">Total</span> <strong className="text-lg">{new Intl.NumberFormat(locale, { style: "currency", currency, minimumFractionDigits: 0 }).format(total)}</strong></div>
         <button className="btn btn-primary" disabled={pending}>{pending ? "Saving…" : "Save order"}</button>

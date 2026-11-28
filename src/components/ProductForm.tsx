@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { saveProductAction } from "@/app/actions/products";
 import { CATEGORIES, CATEGORY_LABEL, DEFAULT_SIZES, type Category } from "@/lib/config";
 import { ImagePicker } from "./ImagePicker";
+import { useActionToast } from "./Toaster";
 
 type VariantState = { id?: number; size: string; stock: number; reserved: number };
 
@@ -28,6 +29,7 @@ export function ProductForm({
   post?: { id: number; image: string; hasImportableImage: boolean };
 }) {
   const [state, action, pending] = useActionState(saveProductAction, undefined);
+  useActionToast(state);
   const [category, setCategory] = useState<Category>(initial.category);
   const [variants, setVariants] = useState<VariantState[]>(initial.variants);
 
@@ -128,7 +130,6 @@ export function ProductForm({
         <button type="button" className="btn btn-sm" onClick={() => setVariants([...variants, { size: "", stock: 0, reserved: 0 }])}>+ Add one size</button>
       </section>
 
-      {state?.error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{state.error}</p>}
       <div className="flex gap-2">
         <button className="btn btn-primary flex-1 sm:flex-none" disabled={pending}>{pending ? "Saving…" : initial.id ? "Save changes" : "Create product"}</button>
       </div>
