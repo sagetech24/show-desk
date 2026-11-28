@@ -4,6 +4,7 @@ import { ProductForm } from "@/components/ProductForm";
 import { ProductDangerZone, RestockForm } from "@/components/ProductActions";
 import { StatusBadge } from "@/components/ui";
 import type { OrderStatus } from "@/lib/config";
+import { listCategories } from "@/lib/categories";
 import { sql } from "@/lib/db";
 import { getFormatter } from "@/lib/format";
 import { getProduct } from "@/lib/inventory";
@@ -16,7 +17,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   if (!product) notFound();
   const { formatDate, formatMoney } = await getFormatter();
 
-  const [posts, movements, orders] = await Promise.all([
+  const [categories, posts, movements, orders] = await Promise.all([
+    listCategories(),
     sql<IgPost>("select * from ig_posts where product_id = $1 order by posted_at desc nulls last", [product.id]),
     sql<{ id: number; created_at: Date; size: string; delta: number; reason: string; unit_cost: number | null; note: string }>(
       `select m.id, m.created_at, v.size, m.delta, m.reason, m.unit_cost, m.note
@@ -50,9 +52,10 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <ProductForm
+          categories={categories}
           initial={{
             id: product.id,
-            category: product.category,
+            categoryIds: product.categories.map((c) => c.id),
             brand: product.brand,
             name: product.name,
             description: product.description,

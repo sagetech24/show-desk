@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ImportForm } from "@/components/ImportForm";
 
 export const metadata = { title: "Import / Export" };
@@ -39,7 +40,7 @@ export default function DataPage() {
           <h2 className="text-lg font-semibold">Import inventory</h2>
           <p className="text-sm text-slate-500">
             Upload your existing stock sheet. Needed columns: <code>category</code> and <code>name</code>. Recommended: <code>brand</code>, <code>size</code>, <code>stock</code>, <code>price</code>, <code>cost</code>. One row per size.
-            Categories can be running, badminton, tennis or casual.
+            Use the names of your <Link href="/categories" className="font-medium text-brand-600">categories</Link>. A shoe in several categories goes in one cell separated by <code>;</code> (e.g. <code>Running; Casual</code>). Importing adds categories to an existing product and never removes any.
           </p>
           <a href="/api/import" className="mt-1 inline-block text-sm font-medium text-brand-600">Download a CSV template</a>
         </div>

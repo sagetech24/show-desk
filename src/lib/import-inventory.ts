@@ -1,5 +1,6 @@
 import "server-only";
 import { tx } from "./db";
+import { addProductCategories } from "./categories";
 import { adjustVariantStock } from "./inventory";
 import type { ImportRow, ImportSummary } from "./tabular";
 
@@ -18,16 +19,16 @@ export async function applyInventoryImport(rows: ImportRow[], mode: "set" | "add
         if (found[0]) {
           pid = found[0].id;
           await q(
-            `update products set category = $2, active = true,
-               price = coalesce($3, price), cost = coalesce($4, cost) where id = $1`,
-            [pid, r.category, r.price, r.cost],
+            `update products set active = true,
+               price = coalesce($2, price), cost = coalesce($3, cost) where id = $1`,
+            [pid, r.price, r.cost],
           );
           summary.productsUpdated += 1;
         } else {
           pid = (
             await q<{ id: number }>(
-              "insert into products (category, brand, name, price, cost) values ($1,$2,$3,$4,$5) returning id",
-              [r.category, r.brand, r.name, r.price ?? 0, r.cost ?? 0],
+              "insert into products (brand, name, price, cost) values ($1,$2,$3,$4) returning id",
+              [r.brand, r.name, r.price ?? 0, r.cost ?? 0],
             )
           )[0].id;
           summary.productsCreated += 1;
@@ -36,6 +37,8 @@ export async function applyInventoryImport(rows: ImportRow[], mode: "set" | "add
       } else if (r.price !== null || r.cost !== null) {
         await q("update products set price = coalesce($2, price), cost = coalesce($3, cost) where id = $1", [pid, r.price, r.cost]);
       }
+      // Categories from the file are added to the product; existing ones are kept.
+      await addProductCategories(q, pid, r.categories.map((c) => c.id));
 
       const existing = (
         await q<{ id: number; stock: number; reserved: number }>(

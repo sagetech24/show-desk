@@ -10,6 +10,7 @@ const ITEMS = [
   { href: "/orders", label: "Orders", icon: "🧾" },
   { href: "/posts", label: "Posts", icon: "📸" },
   { href: "/data", label: "Import / Export", short: "Data", icon: "📊" },
+  { href: "/categories", label: "Categories", icon: "🏷️" },
   { href: "/settings", label: "Settings", icon: "⚙️" },
 ];
 

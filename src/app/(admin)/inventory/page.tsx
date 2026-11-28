@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { StockStepper } from "@/components/StockStepper";
-import { CategoryBadge, EmptyState, ProductThumb, StockBadge } from "@/components/ui";
-import { CATEGORIES, CATEGORY_LABEL } from "@/lib/config";
+import { CategoryBadges, EmptyState, ProductThumb, StockBadge } from "@/components/ui";
+import { listCategories } from "@/lib/categories";
 import { getFormatter } from "@/lib/format";
 import { listProducts, productSummary } from "@/lib/inventory";
 
@@ -26,8 +26,10 @@ const STATE_ACCENT = {
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const { formatMoney } = await getFormatter();
+  const categories = await listCategories();
+  const category = categories.find((c) => c.slug === sp.category);
   const all = await listProducts({
-    category: CATEGORIES.includes(sp.category as never) ? sp.category : undefined,
+    category: category?.slug,
     q: sp.q,
     onlyArchived: sp.filter === "archived",
   });
@@ -40,16 +42,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const held = rows.reduce((n, r) => n + r.s.totalReserved, 0);
   const lowCount = summarized.filter(({ s }) => s.state === "low").length;
   const outCount = summarized.filter(({ s }) => s.state === "out").length;
-  const hasFilters = !!(sp.category || sp.q || sp.filter);
-
-  // Group by category (rows already arrive sorted by category) unless a single category is chosen.
-  const groups: { category: (typeof CATEGORIES)[number]; items: typeof rows }[] = [];
-  for (const r of rows) {
-    const last = groups[groups.length - 1];
-    if (last && last.category === r.p.category) last.items.push(r);
-    else groups.push({ category: r.p.category, items: [r] });
-  }
-  const showHeadings = !sp.category && groups.length > 1;
+  const hasFilters = !!(category || sp.q || sp.filter);
 
   const chip = (active: boolean) =>
     `inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
@@ -90,7 +83,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       {/* Sticky toolbar */}
       <div className="sticky top-[3.1rem] z-10 lg:top-0 -mx-4 space-y-3 bg-slate-100/95 px-4 py-2 backdrop-blur sm:mx-0 sm:px-0">
         <form action="/inventory" role="search" className="flex gap-2">
-          {sp.category && <input type="hidden" name="category" value={sp.category} />}
+          {category && <input type="hidden" name="category" value={category.slug} />}
           {sp.filter && <input type="hidden" name="filter" value={sp.filter} />}
           <div className="relative flex-1">
             <svg aria-hidden viewBox="0 0 20 20" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -103,9 +96,9 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </form>
 
         <nav aria-label="Filters" className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-          <Link href={href(sp, { category: undefined })} aria-current={!sp.category ? "true" : undefined} className={chip(!sp.category)}>All</Link>
-          {CATEGORIES.map((c) => (
-            <Link key={c} href={href(sp, { category: c })} aria-current={sp.category === c ? "true" : undefined} className={chip(sp.category === c)}>{CATEGORY_LABEL[c]}</Link>
+          <Link href={href(sp, { category: undefined })} aria-current={!category ? "true" : undefined} className={chip(!category)}>All</Link>
+          {categories.map((c) => (
+            <Link key={c.id} href={href(sp, { category: c.slug })} aria-current={category?.id === c.id ? "true" : undefined} className={chip(category?.id === c.id)}>{c.name}</Link>
           ))}
           <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-slate-300" />
           <Link href={href(sp, { filter: toggle("low") })} aria-current={sp.filter === "low" ? "true" : undefined} className={chip(sp.filter === "low")}>Needs restock</Link>
@@ -127,16 +120,9 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </EmptyState>
       ) : (
         <div className="space-y-6">
-          {groups.map((g) => (
-            <section key={g.category} aria-label={CATEGORY_LABEL[g.category]} className="space-y-3">
-              {showHeadings && (
-                <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                  {CATEGORY_LABEL[g.category]}
-                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium normal-case tracking-normal text-slate-600">{g.items.length}</span>
-                </h2>
-              )}
+          <section aria-label="Products" className="space-y-3">
               <div className="grid gap-3 xl:grid-cols-2">
-                {g.items.map(({ p, s }) => (
+                {rows.map(({ p, s }) => (
                   <article
                     key={p.id}
                     className={`card border-l-4 p-3 transition hover:shadow-md sm:p-4 ${STATE_ACCENT[s.state]} ${p.active ? "" : "opacity-75"}`}
@@ -150,7 +136,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                           {p.brand} {p.name}
                         </Link>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          {!sp.category && !showHeadings && <CategoryBadge category={p.category} />}
+                          <CategoryBadges categories={p.categories} />
                           <StockBadge state={s.state} />
                           {!p.active && <span className="badge bg-slate-200 text-slate-600">Archived</span>}
                         </div>
@@ -177,8 +163,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   </article>
                 ))}
               </div>
-            </section>
-          ))}
+          </section>
         </div>
       )}
     </div>

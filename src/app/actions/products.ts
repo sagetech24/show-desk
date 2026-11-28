@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { assertAdmin } from "@/lib/auth";
-import { CATEGORIES } from "@/lib/config";
+import { setProductCategories } from "@/lib/categories";
 import { sql, tx } from "@/lib/db";
 import { toState, UserError, type ActionState } from "@/lib/errors";
 import { adjustVariantStock } from "@/lib/inventory";
@@ -25,8 +25,8 @@ export async function saveProductAction(_: ActionState, form: FormData): Promise
   try {
     await assertAdmin();
     const id = form.get("id") ? Number(form.get("id")) : null;
-    const category = String(form.get("category") ?? "");
-    if (!(CATEGORIES as readonly string[]).includes(category)) throw new UserError("Choose a category.");
+    const categoryIds = form.getAll("category_id").map(Number).filter((n) => Number.isInteger(n) && n > 0);
+    if (categoryIds.length === 0) throw new UserError("Choose at least one category.");
     const name = String(form.get("name") ?? "").trim();
     if (!name) throw new UserError("Product name is required.");
     const brand = String(form.get("brand") ?? "").trim();
@@ -64,18 +64,19 @@ export async function saveProductAction(_: ActionState, form: FormData): Promise
         const exists = await q("select id from products where id = $1", [pid]);
         if (!exists.length) throw new UserError("Product not found.");
         await q(
-          `update products set category=$2, brand=$3, name=$4, description=$5, price=$6, cost=$7, low_stock_threshold=$8 where id=$1`,
-          [pid, category, brand, name, description, price, cost, threshold],
+          `update products set brand=$2, name=$3, description=$4, price=$5, cost=$6, low_stock_threshold=$7 where id=$1`,
+          [pid, brand, name, description, price, cost, threshold],
         );
       } else {
         pid = (
           await q<{ id: number }>(
-            `insert into products (category, brand, name, description, price, cost, low_stock_threshold)
-             values ($1,$2,$3,$4,$5,$6,$7) returning id`,
-            [category, brand, name, description, price, cost, threshold],
+            `insert into products (brand, name, description, price, cost, low_stock_threshold)
+             values ($1,$2,$3,$4,$5,$6) returning id`,
+            [brand, name, description, price, cost, threshold],
           )
         )[0].id;
       }
+      await setProductCategories(q, pid as number, categoryIds);
 
       if (image !== undefined)
         await q("update products set image = $2, image_version = image_version + 1 where id = $1", [pid, image]);

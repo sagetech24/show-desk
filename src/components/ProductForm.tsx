@@ -2,15 +2,20 @@
 
 import { useActionState, useState } from "react";
 import { saveProductAction } from "@/app/actions/products";
-import { CATEGORIES, CATEGORY_LABEL, DEFAULT_SIZES, type Category } from "@/lib/config";
+import Link from "next/link";
+import { STANDARD_SIZES } from "@/lib/config";
+import type { Category } from "@/lib/types";
 import { ImagePicker } from "./ImagePicker";
 import { useActionToast } from "./Toaster";
+import { categoryStyle } from "./ui";
 
 type VariantState = { id?: number; size: string; stock: number; reserved: number };
 
+export type CategoryOption = Pick<Category, "id" | "name" | "color">;
+
 export type ProductFormInitial = {
   id?: number;
-  category: Category;
+  categoryIds: number[];
   brand: string;
   name: string;
   description: string;
@@ -23,21 +28,26 @@ export type ProductFormInitial = {
 
 export function ProductForm({
   initial,
+  categories,
   post,
 }: {
   initial: ProductFormInitial;
+  categories: CategoryOption[];
   post?: { id: number; image: string; hasImportableImage: boolean };
 }) {
   const [state, action, pending] = useActionState(saveProductAction, undefined);
   useActionToast(state);
-  const [category, setCategory] = useState<Category>(initial.category);
+  const [categoryIds, setCategoryIds] = useState<number[]>(initial.categoryIds);
   const [variants, setVariants] = useState<VariantState[]>(initial.variants);
+
+  const toggleCategory = (id: number) =>
+    setCategoryIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
 
   const addSizes = () => {
     const have = new Set(variants.map((v) => v.size));
     setVariants([
       ...variants,
-      ...DEFAULT_SIZES[category].filter((s) => !have.has(s)).map((size) => ({ size, stock: 0, reserved: 0 })),
+      ...STANDARD_SIZES.filter((s) => !have.has(s)).map((size) => ({ size, stock: 0, reserved: 0 })),
     ]);
   };
 
@@ -64,20 +74,38 @@ export function ProductForm({
             </div>
           </div>
         )}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="label" htmlFor="category">Category</label>
-            <select id="category" name="category" className="input" value={category} onChange={(e) => setCategory(e.target.value as Category)}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label" htmlFor="brand">Brand</label>
-            <input id="brand" name="brand" className="input" defaultValue={initial.brand} placeholder="e.g. Nike" list="brands" />
-            <datalist id="brands">
-              {["Nike", "Adidas", "ASICS", "Yonex", "Li-Ning", "Victor", "Wilson", "Babolat", "HEAD", "New Balance", "Hoka", "Brooks", "Mizuno", "Converse", "Vans", "Puma"].map((b) => <option key={b} value={b} />)}
-            </datalist>
-          </div>
+        <fieldset>
+          <legend className="label">Categories</legend>
+          {categories.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No categories yet. <Link href="/categories" className="font-medium text-brand-600 hover:underline">Create one</Link> first.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {categories.map((c) => {
+                const on = categoryIds.includes(c.id);
+                return (
+                  <label
+                    key={c.id}
+                    className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium ring-1 transition focus-within:ring-2 focus-within:ring-brand-500 ${
+                      on ? `${categoryStyle(c.color)} ring-slate-400` : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input type="checkbox" name="category_id" value={c.id} checked={on} onChange={() => toggleCategory(c.id)} className="sr-only" />
+                    <span aria-hidden>{on ? "✓" : "+"}</span> {c.name}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          <p className="hint">Pick every category this shoe fits. <Link href="/categories" className="text-brand-600 hover:underline">Manage categories</Link></p>
+        </fieldset>
+        <div>
+          <label className="label" htmlFor="brand">Brand</label>
+          <input id="brand" name="brand" className="input" defaultValue={initial.brand} placeholder="e.g. Nike" list="brands" />
+          <datalist id="brands">
+            {["Nike", "Adidas", "ASICS", "Yonex", "Li-Ning", "Victor", "Wilson", "Babolat", "HEAD", "New Balance", "Hoka", "Brooks", "Mizuno", "Converse", "Vans", "Puma"].map((b) => <option key={b} value={b} />)}
+          </datalist>
         </div>
         <div>
           <label className="label" htmlFor="name">Product name</label>
@@ -108,7 +136,7 @@ export function ProductForm({
       <section className="card space-y-3 p-4 sm:p-5">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Sizes &amp; stock</h2>
-          <button type="button" className="btn btn-sm" onClick={addSizes}>+ Add {CATEGORY_LABEL[category].toLowerCase()} sizes</button>
+          <button type="button" className="btn btn-sm" onClick={addSizes}>+ Add sizes</button>
         </div>
         {variants.length === 0 && <p className="text-sm text-slate-500">No sizes yet. Add the common sizes, or add one at a time.</p>}
         <div className="space-y-2">
