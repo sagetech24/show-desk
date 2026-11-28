@@ -2,6 +2,7 @@ import { OrderForm, type OrderProductOption } from "@/components/OrderForm";
 import { config } from "@/lib/config";
 import { sql } from "@/lib/db";
 import { available, listProducts } from "@/lib/inventory";
+import { getStoreSettings } from "@/lib/store-settings";
 
 export const metadata = { title: "New order" };
 
@@ -19,7 +20,8 @@ export default async function NewOrder({ searchParams }: { searchParams: Promise
     `select distinct on (lower(customer_name), lower(ig_handle)) customer_name as name, ig_handle as handle
        from orders order by lower(customer_name), lower(ig_handle) limit 500`,
   );
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: config.timezone }).format(new Date());
+  const store = await getStoreSettings();
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: store.timezone }).format(new Date());
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div>
@@ -32,7 +34,7 @@ export default async function NewOrder({ searchParams }: { searchParams: Promise
         initialProductId={sp.product ? Number(sp.product) : undefined}
         initialVariantId={sp.variant ? Number(sp.variant) : undefined}
         today={today}
-        currency={config.currency}
+        currency={store.currency}
         locale={config.locale}
       />
     </div>

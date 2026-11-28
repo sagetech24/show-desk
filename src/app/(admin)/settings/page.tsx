@@ -1,9 +1,9 @@
-import { PasswordForm } from "@/components/SettingsForms";
+import { PasswordForm, StoreForm } from "@/components/SettingsForms";
 import { passwordFromEnv } from "@/lib/auth";
-import { config } from "@/lib/config";
 import { dbMode } from "@/lib/db";
 import { igConfig } from "@/lib/instagram";
 import { sql } from "@/lib/db";
+import { currencyOptions, getStoreSettings, timezoneOptions } from "@/lib/store-settings";
 
 export const metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
@@ -12,9 +12,18 @@ export default async function SettingsPage() {
   await sql("select 1");
   const ig = igConfig();
   const mode = dbMode();
+  const store = await getStoreSettings();
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <h1 className="page-title">Settings</h1>
+
+      <section className="card space-y-3 p-4 sm:p-5">
+        <div>
+          <h2 className="font-semibold">Store settings</h2>
+          <p className="text-sm text-slate-600">Your store details. The time zone sets what counts as “this week / month” on the dashboard, and the currency is used for all prices.</p>
+        </div>
+        <StoreForm values={store} timezones={timezoneOptions()} currencies={currencyOptions()} />
+      </section>
 
       <section className="card space-y-3 p-4 sm:p-5">
         <h2 className="font-semibold">Instagram connection</h2>
@@ -49,7 +58,6 @@ export default async function SettingsPage() {
       <section className="card space-y-1 p-4 text-sm text-slate-600 sm:p-5">
         <h2 className="mb-1 font-semibold text-slate-900">About this install</h2>
         <p>Database: {mode === "postgres" ? "Postgres (DATABASE_URL)" : mode === "local-file" ? "Local file database (.data/pglite)" : "Temporary in-memory database"}</p>
-        <p>Time zone for “this week / month”: {config.timezone} · Currency: {config.currency}</p>
       </section>
     </div>
   );

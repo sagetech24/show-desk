@@ -2,7 +2,7 @@ import Link from "next/link";
 import { StockStepper } from "@/components/StockStepper";
 import { CategoryBadge, EmptyState, ProductThumb, StockBadge } from "@/components/ui";
 import { CATEGORIES, CATEGORY_LABEL } from "@/lib/config";
-import { formatMoney } from "@/lib/format";
+import { getFormatter } from "@/lib/format";
 import { listProducts, productSummary } from "@/lib/inventory";
 
 export const metadata = { title: "Stock" };
@@ -25,6 +25,7 @@ const STATE_ACCENT = {
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
+  const { formatMoney } = await getFormatter();
   const all = await listProducts({
     category: CATEGORIES.includes(sp.category as never) ? sp.category : undefined,
     q: sp.q,

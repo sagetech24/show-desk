@@ -5,7 +5,7 @@ import { ProductDangerZone, RestockForm } from "@/components/ProductActions";
 import { StatusBadge } from "@/components/ui";
 import type { OrderStatus } from "@/lib/config";
 import { sql } from "@/lib/db";
-import { formatDate, formatMoney } from "@/lib/format";
+import { getFormatter } from "@/lib/format";
 import { getProduct } from "@/lib/inventory";
 import type { IgPost } from "@/lib/types";
 
@@ -14,6 +14,7 @@ export const metadata = { title: "Edit product" };
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const product = await getProduct(Number((await params).id));
   if (!product) notFound();
+  const { formatDate, formatMoney } = await getFormatter();
 
   const [posts, movements, orders] = await Promise.all([
     sql<IgPost>("select * from ig_posts where product_id = $1 order by posted_at desc nulls last", [product.id]),
